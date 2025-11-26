@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package dashboard;
+
+// Main service for real-time training visualization
+service DashboardService {
+  // Bidirectional streaming for continuous training updates
+  // Client (Python) sends training data, Server (C++) sends acknowledgments
+  rpc StreamTrainingData(stream TrainingBatch) returns (stream DashboardResponse);
+  
+  // Unary RPC for health check and connection verification
+  rpc PingDashboard(PingRequest) returns (PingResponse);
+  
+  // Unary RPC to reset dashboard state between training runs
+  rpc ResetDashboard(ResetRequest) returns (ResetResponse);
+}
+
+// Message sent from Python training script to C++ dashboard
+// Contains all data needed to update the visualization for one training iteration
+message TrainingBatch {
+  repeated bytes images = 1;        // Up to 16 images encoded as PNG/JPEG bytes
+  repeated int32 predictions = 2;   // Model predictions (class indices, e.g., 0-9 for MNIST)
+  repeated int32 ground_truth = 3;  // Actual labels for comparison
+  float loss = 4;                   // Training loss value for current batch
+  int32 iteration = 5;              // Current iteration/batch number
+  int32 epoch = 6;                  // Current epoch number
+  int32 batch_size = 7;             // Actual number of images (handles batches < 16)
+  double timestamp = 8;             // Client timestamp for latency measurement
+  int32 image_width = 9;            // Image width in pixels
+  int32 image_height = 10;          // Image height in pixels
+}
+
+// Response from C++ dashboard back to Python training script
+// Provides feedback for adaptive back-pressure and fault tolerance
+message DashboardResponse {
+  bool success = 1;                 // Whether batch was successfully received and rendered
+  string message = 2;               // Status/error message (e.g., "PNG decode failed")
+  double server_timestamp = 3;      // Server timestamp for latency calculation
+  int32 frames_per_second = 4;      // Current dashboard FPS (for performance monitoring)
+  int32 queue_size = 5;             // Number of batches waiting to be displayed
+}
+
+// Lightweight health check request
+message PingRequest {
+  double client_timestamp = 1;      // Client timestamp for round-trip time calculation
+  string client_id = 2;             // Identifier for training client (e.g., "pytorch_trainer")
+}
+
+// Health check response
+message PingResponse {
+  bool alive = 1;                   // Dashboard is running and responsive
+  double server_timestamp = 2;      // Server timestamp for RTT measurement
+  string status = 3;                // Dashboard status (e.g., "Ready", "Rendering at 60 FPS")
+  int32 frames_per_second = 4;      // Current FPS (verify 60 FPS requirement)
+}
+
+// Request to reset dashboard state
+message ResetRequest {
+  bool clear_images = 1;            // Clear all displayed image tiles
+  bool clear_loss_history = 2;      // Clear loss plot data
+  bool clear_predictions = 3;       // Clear prediction vs ground truth displays
+}
+
+// Response confirming reset
+message ResetResponse {
+  bool success = 1;                 // Whether reset was successful
+  string message = 2;               // Status message
+}
