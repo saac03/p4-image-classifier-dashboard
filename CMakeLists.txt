@@ -1,21 +1,42 @@
-﻿# CMakeList.txt : CMake project for p4-image-classifier-dashboard, include source and define
-# project specific logic here.
-#
-cmake_minimum_required (VERSION 3.8)
+﻿cmake_minimum_required(VERSION 3.20)
 
-# Enable Hot Reload for MSVC compilers if supported.
-if (POLICY CMP0141)
-  cmake_policy(SET CMP0141 NEW)
-  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
-endif()
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-project ("p4-image-classifier-dashboard")
+project("p4-image-classifier-dashboard")
 
-# Add source to this project's executable.
-add_executable (p4-image-classifier-dashboard "p4-image-classifier-dashboard.cpp" "p4-image-classifier-dashboard.h")
+find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
 
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET p4-image-classifier-dashboard PROPERTY CXX_STANDARD 20)
-endif()
+# set (PROTO_SRC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/proto/generated"
+#    CACHE PATH "Proto Files" FORCE)
+set (PROTO_SRC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/proto/cpp"
+    CACHE PATH "Proto Files" FORCE)
+file(GLOB_RECURSE PROTO_SRC "${PROTO_SRC_PATH}/*.cc")
+file(GLOB_RECURSE PROTO_HEADERS "${PROTO_SRC_PATH}/*.h")
 
-# TODO: Add tests and install targets if needed.
+set (SERVER_SRC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src_cpp"
+    CACHE PATH "Project Server SRC" FORCE)
+file(GLOB_RECURSE SERVER_SRC CMAKE_CONFIGURE_DEPENDS "${SERVER_SRC_PATH}/*.[ch]pp")
+add_executable (dashboard "dashboard.cpp" "dashboard.h" ${PROTO_SRC} ${PROTO_HEADERS} ${SERVER_SRC})
+
+target_include_directories(dashboard PUBLIC "${PROTO_SRC_PATH}")
+target_compile_definitions(dashboard PUBLIC "PROTOBUF_USE_DLLS")
+target_link_libraries(dashboard PUBLIC 
+    gRPC::grpc
+    gRPC::grpc++
+    gRPC::grpc++_reflection
+    protobuf::libprotobuf
+)
+
+# set (CLIENT_SRC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src_client"
+#    CACHE PATH "Project Client SRC" FORCE)
+# file(GLOB_RECURSE CLIENT_SRC CMAKE_CONFIGURE_DEPENDS "${CLIENT_SRC_PATH}/*.[ch]pp")
+# add_executable (GRPC_Client "GRPC_Client.cpp" "GRPC_Client.h" ${PROTO_SRC} ${PROTO_HEADERS} ${CLIENT_SRC})
+
+# target_include_directories(GRPC_Client PUBLIC "${PROTO_SRC_PATH}")
+# target_compile_definitions(GRPC_Client PUBLIC PROTOBUF_USE_DLLS)
+# target_link_libraries(GRPC_Client PUBLIC
+#  gRPC::grpc++
+#  protobuf::libprotobuf
+# )
